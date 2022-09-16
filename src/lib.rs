@@ -28,11 +28,29 @@ pub fn main_js() -> Result<(), JsValue> {
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
-    
+
+     wasm_bindgen_futures::spawn_local(async move {
+        let (success_tx, success_rx) = futures::channel::oneshot::channel::<()>();
+
+  
+    let image = web_sys::HtmlImageElement::new().unwrap();
+    let callback = Closure::once(|| {
+        web_sys::console::log_1(&JsValue::from_str("loaded"));
+        success_tx.send(());
+    });
+    image.set_onload(Some(callback.as_ref().unchecked_ref()));
+    callback.forget();
+    image.set_src("Idle (1).png");
+    success_rx.await;
+    context.draw_image_with_html_image_element(&image, 0.0, 0.0);
     serpinsky(&context, [(300.0, 0.0), (0.0,600.0),(600.0,600.0)],(0,200,0),5);
     console::log_1(&JsValue::from_str("Hello world!"));
+    });
     Ok(())
+
 }
+
+
 fn draw_triangle(context: &web_sys::CanvasRenderingContext2d, points: [(f64,f64);3 ], color: (u8,u8,u8)) {
     let [top, left, right] = points;
     let color_str = format!("rgb({},{},{})",color.0, color.1, color.2);
