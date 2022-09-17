@@ -1,7 +1,10 @@
+use std::{rc::Rc, sync::Mutex};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::console;
 use rand::prelude::*;
+
+
 
 
 
@@ -29,23 +32,47 @@ pub fn main_js() -> Result<(), JsValue> {
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
 
-     wasm_bindgen_futures::spawn_local(async move {
-        let (success_tx, success_rx) = futures::channel::oneshot::channel::<()>();
+     wasm_bindgen_futures::spawn_local(
+        async move {
+        // this block is spawned and started by the browser runtime
 
-  
-    let image = web_sys::HtmlImageElement::new().unwrap();
-    let callback = Closure::once(|| {
-        web_sys::console::log_1(&JsValue::from_str("loaded"));
-        success_tx.send(());
-    });
-    image.set_onload(Some(callback.as_ref().unchecked_ref()));
-    callback.forget();
-    image.set_src("Idle (1).png");
-    success_rx.await;
-    context.draw_image_with_html_image_element(&image, 0.0, 0.0);
-    serpinsky(&context, [(300.0, 0.0), (0.0,600.0),(600.0,600.0)],(0,200,0),5);
-    console::log_1(&JsValue::from_str("Hello world!"));
-    });
+        let (success_tx, success_rx) = futures::channel::oneshot::channel::<Result<(),JsValue>>();
+        let success_tx = Rc::new(Mutex::new(success_tx));
+        // let error_tx = Rc::clone(&success_tx);
+
+    
+        let image = web_sys::HtmlImageElement::new().unwrap();
+        let (success_tx, success_rx) = futures::channel::oneshot::channel::<Result<(), JsValue>>();
+        let success_tx = Rc::new(Mutex::new(Some(success_tx)));
+        let error_tx = Rc::clone(&success_tx);
+
+        let callback = Closure::once(move || {
+            if let Some(success_tx) = success_tx.lock().ok().and_then(|mut opt| opt.take()) {
+                web_sys::console::log_1(&JsValue::from_str("success callback"));
+                success_tx.send(Ok(()));
+            
+        }});
+
+        let error_callback = Closure::once(move |err:JsValue| {
+            if let Some(error_tx) = error_tx.lock().ok().and_then(|mut opt| opt.take()) {
+                // web_sys::console::log_1(&err);
+                web_sys::console::log_1(&err);
+                error_tx.send(Err(err));
+            }
+        });
+
+        image.set_onload(Some(callback.as_ref().unchecked_ref()));
+        image.set_onerror(Some(error_callback.as_ref().unchecked_ref()));
+        image.set_src("rhb.png");
+
+        success_rx.await;
+
+        web_sys::console::log_1(&JsValue::from_str("resuming execution"));
+        context.draw_image_with_html_image_element(&image, 0.0, 0.0);
+        serpinsky(&context, [(300.0, 0.0), (0.0,600.0),(600.0,600.0)],(0,200,0),5);
+        console::log_1(&JsValue::from_str("Hello world!"));
+        });
+        web_sys::console::log_1(&JsValue::from_str("main returning"));
     Ok(())
 
 }
