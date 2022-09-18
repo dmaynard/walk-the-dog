@@ -1,11 +1,26 @@
-use std::{rc::Rc, sync::Mutex};
+use std::{collections::HashMap, rc::Rc, sync::Mutex};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::console;
 use rand::prelude::*;
+use serde::Deserialize;
 
+#[derive(Deserialize)]
+struct Rect {
+    x: u16,
+    y: u16,
+    w: u16,
+    h: u16,
+}
 
-
+#[derive (Deserialize)]
+struct Cell {
+    frame: Rect,
+}
+#[derive(Deserialize)]
+struct Sheet {
+    frames: HashMap<String, Cell>,
+}
 
 
 // This is like the `main` function, except for JavaScript.
@@ -15,7 +30,7 @@ pub fn main_js() -> Result<(), JsValue> {
     console_error_panic_hook::set_once();
 
 
-    // Your code goes here!
+    // Your code goes hre!
 
     let window = web_sys::window().unwrap();
     let document = window.document().unwrap();
@@ -55,7 +70,7 @@ pub fn main_js() -> Result<(), JsValue> {
 
         let error_callback = Closure::once(move |err:JsValue| {
             if let Some(error_tx) = error_tx.lock().ok().and_then(|mut opt| opt.take()) {
-                // web_sys::console::log_1(&err);
+                web_sys::console::log_1(&JsValue::from_str("error callback"));
                 web_sys::console::log_1(&err);
                 error_tx.send(Err(err));
             }
@@ -63,19 +78,36 @@ pub fn main_js() -> Result<(), JsValue> {
 
         image.set_onload(Some(callback.as_ref().unchecked_ref()));
         image.set_onerror(Some(error_callback.as_ref().unchecked_ref()));
-        image.set_src("rhb.png");
+        image.set_src("Idle (1).png");
 
         success_rx.await;
 
         web_sys::console::log_1(&JsValue::from_str("resuming execution"));
         context.draw_image_with_html_image_element(&image, 0.0, 0.0);
         serpinsky(&context, [(300.0, 0.0), (0.0,600.0),(600.0,600.0)],(0,200,0),5);
+        let json = fetch_json(&"./rhb.json").await.expect("Couldn't load json
+        ");
+        let sheet: Sheet = json
+            .into_serde()
+            .expect("Couldn't convert json into sheet");
         console::log_1(&JsValue::from_str("Hello world!"));
         });
         web_sys::console::log_1(&JsValue::from_str("main returning"));
     Ok(())
 
 }
+
+async fn fetch_json (jason_path: &str) -> Result<JsValue, JsValue> {
+    let window = web_sys::window().unwrap();
+    console::log_1(&JsValue::from_str("got window"));
+    console::log_1(&JsValue::from_str(jason_path));
+    let resp_value = wasm_bindgen_futures::JsFuture::from(
+        window.fetch_with_str(jason_path)).await?;
+        console::log_1(&JsValue::from_str("fetch with str finished"));
+    let resp: web_sys::Response = resp_value.dyn_into()?;
+    wasm_bindgen_futures::JsFuture::from(resp.json()?).await
+    }
+
 
 
 fn draw_triangle(context: &web_sys::CanvasRenderingContext2d, points: [(f64,f64);3 ], color: (u8,u8,u8)) {
