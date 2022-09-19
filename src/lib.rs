@@ -5,7 +5,7 @@ use web_sys::console;
 use rand::prelude::*;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Rect {
     x: u16,
     y: u16,
@@ -13,11 +13,11 @@ struct Rect {
     h: u16,
 }
 
-#[derive (Deserialize)]
+#[derive (Deserialize, Debug)]
 struct Cell {
     frame: Rect,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Sheet {
     frames: HashMap<String, Cell>,
 }
@@ -90,9 +90,54 @@ pub fn main_js() -> Result<(), JsValue> {
         let sheet: Sheet = json
             .into_serde()
             .expect("Couldn't convert json into sheet");
-        console::log_1(&JsValue::from_str("Hello world!"));
+        let (success_tx, success_rx) = futures::channel::oneshot::channel::<Result<(),JsValue>>();
+        let success_tx = Rc::new(Mutex::new(success_tx));
+        // let error_tx = Rc::clone(&success_tx);
+
+    
+        let image = web_sys::HtmlImageElement::new().unwrap();
+        let (success_tx, success_rx) = futures::channel::oneshot::channel::<Result<(), JsValue>>();
+        let success_tx = Rc::new(Mutex::new(Some(success_tx)));
+        let error_tx = Rc::clone(&success_tx);
+
+        let callback = Closure::once(move || {
+            if let Some(success_tx) = success_tx.lock().ok().and_then(|mut opt| opt.take()) {
+                web_sys::console::log_1(&JsValue::from_str("success callback"));
+                success_tx.send(Ok(()));
+            
+        }});
+
+        let error_callback = Closure::once(move |err:JsValue| {
+            if let Some(error_tx) = error_tx.lock().ok().and_then(|mut opt| opt.take()) {
+                web_sys::console::log_1(&JsValue::from_str("error callback"));
+                web_sys::console::log_1(&err);
+                error_tx.send(Err(err));
+            }
         });
-        web_sys::console::log_1(&JsValue::from_str("main returning"));
+
+        image.set_onload(Some(callback.as_ref().unchecked_ref()));
+        image.set_onerror(Some(error_callback.as_ref().unchecked_ref()));
+        image.set_src("rhb.png");
+
+        success_rx.await;
+        let sprite = sheet.frames.get("Run (1).png").expect(" Cell not found");
+        console::log_1(&JsValue::from_str(&(format!("sprite = {:?}!", sprite))));
+
+        console::log_1(&JsValue::from_str("Hello world!"));
+        console::log_1(&JsValue::from_str(&(format!("sheet = {:?}!", sheet.frames.keys()))));
+        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+            &image,
+           sprite.frame.x.into(),
+            sprite.frame.y.into(),
+           sprite.frame.w.into(),
+          sprite.frame.h.into(),
+         300.0,
+         300.0,
+        sprite.frame.w.into(),
+        sprite.frame.h.into(),
+             );
+        });
+    web_sys::console::log_1(&JsValue::from_str("main returning"));
     Ok(())
 
 }
