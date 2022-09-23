@@ -47,7 +47,7 @@ pub fn main_js() -> Result<(), JsValue> {
     wasm_bindgen_futures::spawn_local(async move {
         // this block is spawned and started by the browser runtime
 
-        let json = fetch_json(&"./rhb.json").await.expect(
+        let json = fetch_json(&"rhb.json").await.expect(
             "Couldn't load json
         ",
         );
@@ -78,7 +78,7 @@ pub fn main_js() -> Result<(), JsValue> {
 
         image.set_onload(Some(callback.as_ref().unchecked_ref()));
         image.set_onerror(Some(error_callback.as_ref().unchecked_ref()));
-        image.set_src("rhb.png");
+        image.set_src("./rhb.png");
 
         success_rx.await;
         let mut frame = -1;
@@ -103,10 +103,12 @@ pub fn main_js() -> Result<(), JsValue> {
                 )
                 .expect("error drawing sprite");
         }) as Box<dyn FnMut()>);
-        window.set_interval_with_callback_and_timeout_and_arguments_0(
-            interval_callback.as_ref().unchecked_ref(),
-            50,
-        );
+        window
+            .set_interval_with_callback_and_timeout_and_arguments_0(
+                interval_callback.as_ref().unchecked_ref(),
+                50,
+            )
+            .expect("problem setting interval timer");
         interval_callback.forget();
         // console::log_1(&JsValue::from_str(&(format!("sprite = {:?}!", sprite))));
 
