@@ -5,6 +5,9 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::console;
 
+#[macro_use]
+mod browser;
+
 #[derive(Deserialize, Debug)]
 struct Rect {
     x: u16,
@@ -29,8 +32,8 @@ pub fn main_js() -> Result<(), JsValue> {
 
     // Your code goes hre!
 
-    let window = web_sys::window().unwrap();
-    let document = window.document().unwrap();
+    // let window = browser::window().expect("Np Window Found");
+    let document = browser::document().expect("No Document Found");
     let canvas = document
         .get_element_by_id("canvas")
         .unwrap()
@@ -103,7 +106,8 @@ pub fn main_js() -> Result<(), JsValue> {
                 )
                 .expect("error drawing sprite");
         }) as Box<dyn FnMut()>);
-        window
+        browser::window()
+            .unwrap()
             .set_interval_with_callback_and_timeout_and_arguments_0(
                 interval_callback.as_ref().unchecked_ref(),
                 50,
@@ -113,6 +117,7 @@ pub fn main_js() -> Result<(), JsValue> {
         // console::log_1(&JsValue::from_str(&(format!("sprite = {:?}!", sprite))));
 
         console::log_1(&JsValue::from_str("Hello world!"));
+        log!("Test of log macro");
     });
     web_sys::console::log_1(&JsValue::from_str("main returning"));
     Ok(())
