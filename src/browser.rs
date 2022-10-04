@@ -18,6 +18,12 @@ macro_rules! log {
     }
 }
 
+macro_rules! error {
+    ( $( $t:tt )* ) => {
+        web_sys::console::error_1(&format!( $( $t )* ).into());
+    }
+}
+
 pub fn window() -> anyhow::Result<Window> {
     web_sys::window().ok_or_else(|| anyhow!("No Window Found"))
 }
@@ -78,4 +84,15 @@ pub async fn fetch_json(json_path: &str) -> Result<JsValue> {
     )
     .await
     .map_err(|err| anyhow!("error fetching JSON {:#?}", err))
+}
+
+pub fn new_image() -> Result<HtmlImageElement> {
+    HtmlImageElement::new().map_err(|err| anyhow!("Could not create Image ELement {:#?} ", err))
+}
+
+pub fn closure_once<F, A, R>(fn_once: F) -> Closure<F::FnMut>
+where
+    F: 'static + WasmClosureFnOnce<A, R>,
+{
+    Closure::once(fn_once)
 }
